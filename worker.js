@@ -158,7 +158,7 @@ function onInitiate(source, {level: l, fragmentId: f, state: s}) {
   state = s;
   inBranch = source;
   bestEdge = null;
-  bestWeight = Number.MAX_SAFE_INTEGER;
+  bestWeight = Number.POSITIVE_INFINITY;
   // Send INITIATE messages on each branch edge
   branchEdges.filter(edge => edge !== inBranch).forEach(edge => {
     let message = {
@@ -203,7 +203,7 @@ function onReport(source, {bestWeight: w}) {
     // Place message at the end of the queue
   } else if (w > bestWeight) {
     changeCore();
-  } else if (w = bestWeight = Number.MAX_SAFE_INTEGER) {
+  } else if (w === bestWeight === Number.POSITIVE_INFINITY) {
     console.log('HALT');
     process.exit();
   }
