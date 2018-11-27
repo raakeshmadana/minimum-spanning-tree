@@ -19,6 +19,7 @@ var bestWeight;
 var testEdge; // The edge being tested
 var inBranch; // The neighbor that sent the INITIATE message
 var findCount; // Number of expected REPORT messages
+var delayedMessages = []; // Queue to delay processing certain messages
 
 const tasks = {};
 tasks[constants.CONNECT] = onConnect;
@@ -44,6 +45,11 @@ process.on('message', (message) => {
       });
       conn.on('data', function(msg) {
         console.log(id, 'Server Received Msg!!');
+        if (delayedMessages.length > 0) {
+          let delayedMessage = delayedMessages.shift();
+          let delayedTask = tasks[delayedMessage.type];
+          delayedTask(delayedMessage.source, delayedMessage.payload);
+        }
         msg = JSON.parse(msg);
         console.log(msg);
         let task = tasks[msg.type];
@@ -138,6 +144,14 @@ function onConnect(source, {level: l}) {
   } else if (basicEdges.includes(source)) {
     // Delay processing the message by placing it at the end of the queue
     // Not sure how to do this yet
+    let message = {
+      source,
+      type: constants.CONNECT,
+      payload: {
+        level: l
+      }
+    };
+    delayedMessages.push(message);
   } else { // Merge
     let message = {
       source: id,
@@ -201,6 +215,14 @@ function onReport(source, {bestWeight: w}) {
     }
   } else if (state === FIND) {
     // Place message at the end of the queue
+    let message = {
+      source,
+      type: constants.REPORT,
+      payload: {
+        bestWeight: w
+      }
+    };
+    delayedMessages.push(message);
   } else if (w > bestWeight) {
     changeCore();
   } else if (w === bestWeight === Number.POSITIVE_INFINITY) {
@@ -215,6 +237,15 @@ function onTest(source, {level: l, fragmentId: f}) {
   }
   if (l > level) {
     // Place message at the end of the queue
+    let message = {
+      source,
+      type: constants.TEST,
+      payload: {
+        level: l,
+        fragmentId: f
+      }
+    };
+    delayedMessages.push(message);
   } else if (f !== fragmentId) {
     let message = {
       source: id,
