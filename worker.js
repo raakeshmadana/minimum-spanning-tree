@@ -29,6 +29,7 @@ tasks[constants.ACCEPT] = onAccept;
 tasks[constants.REJECT] = onReject;
 tasks[constants.REPORT] = onReport;
 tasks[constants.CHANGE_CORE] = changeCore;
+tasks[constants.HALT] = onHalt;
 
 setInterval(function() {
   if (delayedMessages.length > 0) {
@@ -187,6 +188,10 @@ function onConnect(source, {level: l}) {
   }
 }
 
+function onHalt() {
+  console.log('Node', id, 'HALTED', branchEdges);
+}
+
 function onInitiate(source, {level: l, fragmentId: f, state: s}) {
   console.log(id, 'received INITIATE from', source);
   // Update state
@@ -260,7 +265,17 @@ function onReport(source, {bestWeight : w}) {
     changeCore();
   } else if (w === Number.POSITIVE_INFINITY &&
       bestWeight === Number.POSITIVE_INFINITY) {
-        console.log('Node', id, 'HALTED');
+        // Send HALT message on all branchEdges except inBranch
+        branchEdges.filter(edge => edge !== inBranch).forEach(edge => {
+          let message = {
+            source: id,
+            type: constants.HALT,
+          };
+          sendMessage(clients[edge], message);
+        });
+
+        // Output branch edges
+        console.log('Core Node', id, 'HALTED', branchEdges);
   }
 }
 

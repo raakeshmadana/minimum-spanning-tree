@@ -11,6 +11,7 @@ const REJECT = 'REJECT';
 const REPORT = 'REPORT';
 const CHANGE_CORE = 'CHANGE_CORE';
 const CONNECT = 'CONNECT';
+const HALT = 'HALT';
 
 module.exports = {
   SLEEPING,
@@ -22,5 +23,6 @@ module.exports = {
   REJECT,
   REPORT,
   CHANGE_CORE,
-  CONNECT
+  CONNECT,
+  HALT
 };
