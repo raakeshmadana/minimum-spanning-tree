@@ -78,7 +78,7 @@ process.on('message', (message) => {
 });
 
 function changeCore() {
-  console.log('called changecore');
+  console.log(id, 'called changeCore');
   if (branchEdge.includes(bestEdge)) {
     // Send CHANGE_CORE on bestEdge
     // This propagates the CHANGE_CORE message to the node that found the MWOE
@@ -89,7 +89,7 @@ function changeCore() {
     sendMessage(clients[bestEdge], message);
   } else {
     // This is the node that found the MWOE
-    // Send CONNECT message
+    // Send CONNECT message on bestEdge
     let message = {
       source: id,
       type: constants.CONNECT,
@@ -97,10 +97,6 @@ function changeCore() {
         level
       }
     };
-    // BUG 2
-    // The CONNECT message is not being sent
-    // FIX
-    // Send CONNECT message on bestEdge
     sendMessage(clients[bestEdge], message);
 
     // Move the bestEdge from basicEdges to branchEdges
@@ -111,43 +107,45 @@ function changeCore() {
 }
 
 // Random delay for each message to simulate async network
-function sendMessage(client, message) {
+function sendDelayedMessage(client, message) {
   let random = _.sample(allowedWait);
   setTimeout(() => {
       client.write(JSON.stringify(message));
-      console.log('Node ID : ' , id, 'Current Branch Edges : ', branchEdges);
-      console.log('Node ID : ' , id, 'Current Level : ', level);
-      console.log('Node ID : ' , id, 'Fragment ID: ', fragmentId);
-  }, random * 1000);
+      //console.log('Node ID : ' , id, 'Current Branch Edges : ', branchEdges);
+      //console.log('Node ID : ' , id, 'Current Level : ', level);
+      //console.log('Node ID : ' , id, 'Fragment ID: ', fragmentId);
+  }, random * 100);
+}
+
+function sendMessage(client, message) {
+  client.write(JSON.stringify(message));
 }
 
 function onAccept(source, payload) {
+  console.log(id, 'received ACCEPT from', source);
   testEdge = null;
   if (neighbors[source] < bestWeight) {
     bestEdge = parseInt(source);
     bestWeight = neighbors[source];
-    // BUG 3
-    // Report should be outside the if block
   }
-  // FIX
+
   report();
 }
 
 function onConnect(source, {level: l}) {
+  console.log(id, 'received CONNECT from', source);
   if (state === constants.SLEEPING) {
     wakeup();
   }
 
   if (l < level) { // Absorb
-    // BUG 1
-    // Source edge becomes a branch edge but it has not been removed from basic
-    // edges
-    // FIX
-    // Remove the source edge from basicEdges
+    console.log(id, 'absorbs', source);
+    // Make the source edge a branch edge
     let index = basicEdges.indexOf(parseInt(source));
     basicEdges.splice(index, 1);
     branchEdges.push(parseInt(source));
-    // Send INITIATE
+
+    // Send INITIATE message on the source edge
     let message = {
       source: id,
       type: constants.INITIATE,
@@ -160,7 +158,7 @@ function onConnect(source, {level: l}) {
     sendMessage(clients[source], message);
 
     if (state === constants.FIND) {
-      // The fragment to be absorbed gets added to the search
+      // The fragment to be absorbed gets added to the search of the MWOE
       findCount++;
     }
   } else if (basicEdges.includes(parseInt(source))) {
@@ -174,7 +172,8 @@ function onConnect(source, {level: l}) {
     };
     delayedMessages.push(message);
   } else { // Merge
-    // Send INITIATE message
+    console.log(id, 'merges with', source);
+    // Send INITIATE message on the source edge
     let message = {
       source: id,
       type: constants.INITIATE,
@@ -189,12 +188,15 @@ function onConnect(source, {level: l}) {
 }
 
 function onInitiate(source, {level: l, fragmentId: f, state: s}) {
+  console.log(id, 'received INITIATE from', source);
+  // Update state
   level = l;
   fragmentId = f;
   state = s;
   inBranch = parseInt(source);
   bestEdge = null;
   bestWeight = Number.POSITIVE_INFINITY;
+
   // Send INITIATE messages on each branch edge except on inBranch
   branchEdges.filter(edge => edge !== inBranch).forEach(edge => {
     let message = {
@@ -207,39 +209,44 @@ function onInitiate(source, {level: l, fragmentId: f, state: s}) {
       }
     };
     sendMessage(clients[edge], message);
+
     if (s === constants.FIND) { // The fragment is getting absorbed otherwise
       findCount++;
     }
   });
+
   if (s === constants.FIND) {
     test();
   }
 }
 
 function onReject(source, payload) {
+  console.log(id, 'received REJECT from', source);
   // Move the edge from basicEdges to rejectedEdges
   if (basicEdges.includes(parseInt(source))) {
     let index = basicEdges.indexOf(parseInt(source));
     basicEdges.splice(index, 1);
     rejectedEdges.push(parseInt(source));
-    test();
   }
+
+  test();
 }
 
 function onReport(source, {bestWeight : w}) {
-  w = (w==='infinity') ? Number.POSITIVE_INFINITY : w;
+  console.log(id, 'received REPORT from', source);
+  w = (w === 'infinity') ? Number.POSITIVE_INFINITY : w;
 
   if (parseInt(source) !== inBranch) {
     findCount--;
+
     if (w < bestWeight) {
       bestWeight = w;
       bestEdge = parseInt(source);
-      // BUG 4
-      // Report should be outside if block
     }
-    // FIX
+
     report();
   } else if (state === constants.FIND) {
+    console.log(id, 'Delays REPORT from', source);
     // Delay processing the message
     let message = {
       source,
@@ -253,15 +260,18 @@ function onReport(source, {bestWeight : w}) {
     changeCore();
   } else if (w === Number.POSITIVE_INFINITY &&
       bestWeight === Number.POSITIVE_INFINITY) {
+        console.log('Node', id, 'HALTED');
   }
 }
 
 function onTest(source, {level: l, fragmentId: f}) {
+  console.log(id, 'received TEST from', source);
   if (state === constants.SLEEPING) {
     wakeup();
   }
 
   if (l > level) {
+    console.log(id, 'delays TEST from', source);
     // Delay processing the message
     let message = {
       source,
@@ -273,31 +283,35 @@ function onTest(source, {level: l, fragmentId: f}) {
     };
     delayedMessages.push(message);
   } else if (f !== fragmentId) {
-    // Send ACCEPT message on source edge
+    // Send ACCEPT message on the source edge
     let message = {
       source: id,
       type: constants.ACCEPT,
     };
     sendMessage(clients[source], message);
-  } else if (basicEdges.includes(parseInt(source))) {
-    // Add the edge to rejectedEdges
-    let index = basicEdges.indexOf(parseInt(source));
-    basicEdges.splice(index, 1);
-    rejectedEdges.push(parseInt(source));
-  }
-    // Send REJECT message on source edge
-  if (testEdge !== parseInt(source)) {
-    let message = {
-      source: id,
-      type: constants.REJECT
-    };
-    sendMessage(clients[source], message);
   } else {
-    test();
+    if (basicEdges.includes(parseInt(source))) {
+      // Add the edge to rejectedEdges
+      let index = basicEdges.indexOf(parseInt(source));
+      basicEdges.splice(index, 1);
+      rejectedEdges.push(parseInt(source));
+    }
+
+    // Send REJECT message on source edge
+    if (testEdge !== parseInt(source)) {
+      let message = {
+        source: id,
+        type: constants.REJECT
+      };
+      sendMessage(clients[source], message);
+    } else {
+      test();
+    }
   }
 }
 
 function report() {
+  console.log(id, 'called REPORT');
   if (findCount === 0 && testEdge === null) {
     // All REPORTS received and no basic edge left to test
     state = constants.FOUND;
@@ -310,12 +324,12 @@ function report() {
         'bestWeight' : isFinite(bestWeight) ? bestWeight : 'infinity'
       }
     };
-    // Send a REPORT back to the node that sent the INITIATE
     sendMessage(clients[inBranch], message);
   }
 }
 
 function test() {
+  console.log(id, 'called TEST');
   if (basicEdges.length > 0) {
     // Send a TEST message on the minimum weight basic edge
     // The testEdge remains a basic edge unless it receives an REJECT message
