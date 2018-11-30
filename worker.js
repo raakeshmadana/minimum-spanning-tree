@@ -4,6 +4,8 @@ var neighbors;
 var clients = {};
 var net = require('net');
 var _ = require('lodash');
+const chalk = require('chalk');
+
 var allowedWait =
   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
@@ -64,11 +66,11 @@ process.on('message', (message) => {
     Object.keys(neighbors).forEach((neighborID) => {
       let client =
         net.createConnection({port: parseInt(neighborID)}, function(){
-          console.log('Connected to my neighbor');
+          console.log(id, 'connected to neighbor', neighborID);
         });
-      client.on('end', function(){
+      /*client.on('end', function(){
         console.log('Client is dis-connected!!');
-      });
+      });*/
       clients[neighborID] = client;
     });
   } else if (msg['message'] === 'Start') {
@@ -131,10 +133,13 @@ function sendMessage(client, message) {
   let random = _.sample(allowedWait);
   sleep(random * 100);
   client.write(JSON.stringify(message));
+  console.log('Node ID : ' , id, 'Current Branch Edges : ', branchEdges);
+  console.log('Node ID : ' , id, 'Current Level : ', level);
+  console.log('Node ID : ' , id, 'Fragment ID: ', fragmentId);
 }
 
 function onAccept(source, payload) {
-  console.log(id, 'received ACCEPT from', source);
+  console.log(chalk.green(id + 'received ACCEPT from' + source));
   testEdge = null;
   if (neighbors[source] < bestWeight) {
     bestEdge = parseInt(source);
@@ -145,13 +150,13 @@ function onAccept(source, payload) {
 }
 
 function onConnect(source, {level: l}) {
-  console.log(id, 'received CONNECT from', source);
+  console.log(chalk.white.bold(id + ' received CONNECT from ' + source));
   if (state === constants.SLEEPING) {
     wakeup();
   }
 
   if (l < level) { // Absorb
-    console.log(id, 'absorbs', source);
+    console.log(chalk.bgGreen.black.bold(id + ' ABSORBS ' + source));
     // Make the source edge a branch edge
     let index = basicEdges.indexOf(parseInt(source));
     basicEdges.splice(index, 1);
@@ -184,7 +189,7 @@ function onConnect(source, {level: l}) {
     };
     delayedMessages.push(message);
   } else { // Merge
-    console.log(id, 'merges with', source);
+    console.log(chalk.bgGreen.black.bold(id + ' MERGES with ' + source));
     // Send INITIATE message on the source edge
     let message = {
       source: id,
@@ -200,11 +205,14 @@ function onConnect(source, {level: l}) {
 }
 
 function onHalt() {
-  console.log('Node', id, 'HALTED', branchEdges);
+  console.log(chalk.bgRed.black.bold('Node ' + id + ' HALTED'));
+  console.log(chalk.bgYellow.black.bold('Node ' + id + '\'s FINAL BRANCH EDGES'),
+    branchEdges);
+  process.exit();
 }
 
 function onInitiate(source, {level: l, fragmentId: f, state: s}) {
-  console.log(id, 'received INITIATE from', source);
+  console.log(chalk.green(id + ' received INITIATE from ' + source));
   // Update state
   level = l;
   fragmentId = f;
@@ -237,7 +245,7 @@ function onInitiate(source, {level: l, fragmentId: f, state: s}) {
 }
 
 function onReject(source, payload) {
-  console.log(id, 'received REJECT from', source);
+  console.log(chalk.red(id + ' received REJECT from ' + source));
   // Move the edge from basicEdges to rejectedEdges
   if (basicEdges.includes(parseInt(source))) {
     let index = basicEdges.indexOf(parseInt(source));
@@ -249,7 +257,7 @@ function onReject(source, payload) {
 }
 
 function onReport(source, {bestWeight : w}) {
-  console.log(id, 'received REPORT from', source);
+  console.log(chalk.yellow(id + ' received REPORT from ' + source));
   w = (w === 'infinity') ? Number.POSITIVE_INFINITY : w;
 
   if (parseInt(source) !== inBranch) {
@@ -286,12 +294,16 @@ function onReport(source, {bestWeight : w}) {
         });
 
         // Output branch edges
-        console.log('Core Node', id, 'HALTED', branchEdges);
+        console.log(chalk.bgRed.black.bold('CORE Node ' + id + ' HALTED'));
+        console.log(
+          chalk.bgGreen.black.bold('Node ' + id + '\'s FINAL BRANCH EDGES'),
+          branchEdges);
+        process.exit();
   }
 }
 
 function onTest(source, {level: l, fragmentId: f}) {
-  console.log(id, 'received TEST from', source);
+  console.log(chalk.white(id + ' received TEST from ' + source));
   if (state === constants.SLEEPING) {
     wakeup();
   }
