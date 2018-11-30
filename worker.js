@@ -108,17 +108,28 @@ function changeCore() {
 }
 
 // Random delay for each message to simulate async network
+function sleep(milliseconds) {
+  let start = new Date().getTime();
+  for (let i = 0; i < 1e7; i++) {
+   if((new Date().getTime() - start) > milliseconds) {
+     break;
+   }
+  }
+}
+
 function sendDelayedMessage(client, message) {
   let random = _.sample(allowedWait);
   setTimeout(() => {
       client.write(JSON.stringify(message));
-      //console.log('Node ID : ' , id, 'Current Branch Edges : ', branchEdges);
-      //console.log('Node ID : ' , id, 'Current Level : ', level);
-      //console.log('Node ID : ' , id, 'Fragment ID: ', fragmentId);
+      console.log('Node ID : ' , id, 'Current Branch Edges : ', branchEdges);
+      console.log('Node ID : ' , id, 'Current Level : ', level);
+      console.log('Node ID : ' , id, 'Fragment ID: ', fragmentId);
   }, random * 100);
 }
 
 function sendMessage(client, message) {
+  let random = _.sample(allowedWait);
+  sleep(random * 100);
   client.write(JSON.stringify(message));
 }
 
