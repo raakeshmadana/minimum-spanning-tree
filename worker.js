@@ -30,7 +30,7 @@ tasks[constants.TEST] = onTest;
 tasks[constants.ACCEPT] = onAccept;
 tasks[constants.REJECT] = onReject;
 tasks[constants.REPORT] = onReport;
-tasks[constants.CHANGE_CORE] = changeCore;
+tasks[constants.CHANGE_CORE] = onChangeCore;
 tasks[constants.HALT] = onHalt;
 
 setInterval(function() {
@@ -82,7 +82,7 @@ process.on('message', (message) => {
 
 function changeCore() {
   console.log(id, 'called changeCore');
-  if (branchEdge.includes(bestEdge)) {
+  if (branchEdges.includes(bestEdge)) {
     // Send CHANGE_CORE on bestEdge
     // This propagates the CHANGE_CORE message to the node that found the MWOE
     let message = {
@@ -131,7 +131,7 @@ function sendDelayedMessage(client, message) {
 
 function sendMessage(client, message) {
   let random = _.sample(allowedWait);
-  sleep(random * 100);
+  sleep(random * 2000);
   client.write(JSON.stringify(message));
   console.log('Node ID : ' , id, 'Current Branch Edges : ', branchEdges);
   console.log('Node ID : ' , id, 'Current Level : ', level);
@@ -147,6 +147,11 @@ function onAccept(source, payload) {
   }
 
   report();
+}
+
+function onChangeCore(source, payload) {
+  console.log(chalk.magenta(id, ' received CHANGE_CORE from ' + source));
+  changeCore();
 }
 
 function onConnect(source, {level: l}) {
@@ -204,10 +209,22 @@ function onConnect(source, {level: l}) {
   }
 }
 
-function onHalt() {
+function onHalt(source, payload) {
+  console.log(chalk.red(id + ' received HALT from ' + source));
+
+  // Send HALT message on all branchEdges except source
+  branchEdges.filter(edge => edge !== source).forEach(edge => {
+    let message = {
+      source: id,
+      type: constants.HALT,
+    };
+    sendMessage(clients[edge], message);
+  });
+
   console.log(chalk.bgRed.black.bold('Node ' + id + ' HALTED'));
   console.log(chalk.bgYellow.black.bold('Node ' + id + '\'s FINAL BRANCH EDGES'),
     branchEdges);
+
   process.exit();
 }
 
@@ -296,7 +313,7 @@ function onReport(source, {bestWeight : w}) {
         // Output branch edges
         console.log(chalk.bgRed.black.bold('CORE Node ' + id + ' HALTED'));
         console.log(
-          chalk.bgGreen.black.bold('Node ' + id + '\'s FINAL BRANCH EDGES'),
+          chalk.bgYellow.black.bold('Node ' + id + '\'s FINAL BRANCH EDGES'),
           branchEdges);
         process.exit();
   }

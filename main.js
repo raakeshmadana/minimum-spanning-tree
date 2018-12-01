@@ -165,7 +165,7 @@ async function main() {
     Ensures serializability.
     Quick fix - can be improved.
   */
-  await sleep(5000);
+  await sleep(numOfProcess * 250);
   //* Initial client on all neighbot ID's.
   await connectToNeighbor();
   //console.log('Process connected to neighbor');
@@ -176,7 +176,7 @@ async function main() {
     Ensures serializability.
     Quick fix - can be improved.
   */
-  await sleep(5000);
+  await sleep(numOfProcess * 250);
   console.log('All connections established');
   console.log('Start AsynchGHS');
   //console.log('Going to sleep!!');
