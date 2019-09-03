@@ -157,28 +157,29 @@ async function main() {
   console.log('Forked children!!');
   //* Start server on each process (port being its id).
   await initializeChild();
-  console.log('Process initialized!!');
-  console.log('Going to sleep!!');
+  //console.log('Process initialized!!');
+  //console.log('Going to sleep!!');
   /*
     Instead of getting acks from clients (thats its done with the current step),
     sending process to sleep.
     Ensures serializability.
     Quick fix - can be improved.
   */
-  await sleep(2000);
+  await sleep(numOfProcess * 250);
   //* Initial client on all neighbot ID's.
   await connectToNeighbor();
-  console.log('Process connected to neighbor');
-  console.log('Going to sleep!!');
+  //console.log('Process connected to neighbor');
+  //console.log('Going to sleep!!');
   /*
     Instead of getting acks from clients (thats its done with the current step),
     sending process to sleep.
     Ensures serializability.
     Quick fix - can be improved.
   */
-  await sleep(2000);
+  await sleep(numOfProcess * 250);
+  console.log('All connections established');
   console.log('Start AsynchGHS');
-  console.log('Going to sleep!!');
+  //console.log('Going to sleep!!');
   //* Start AsynchGHS.
   await startAsynchGHS();
   return;
